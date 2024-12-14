@@ -3,7 +3,8 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#define INPUT 1
+#define INPUT 2
+#define METHOD 2
 
 #if INPUT == 1
 	char *input = 
@@ -614,7 +615,7 @@ void print_field() {
 	}
 }
 
-int is_christmas_tree() {
+int is_christmas_tree(int *progress) {
 	static char field[MY][MX];
 	for (int y = 0; y < MY; y++) {
 		for (int x = 0; x < MX; x++) {
@@ -627,15 +628,40 @@ int is_christmas_tree() {
 		}
 		field[r->y][r->x] = '*';
 	}
-	for (int y = 0; y < MY; y++) {
-		char *row = field[y];
-		for (int x = 0; x < MIDX; x++) {
-			if (row[x] != row[MX-x-1]) {
-				return 0;
+	#if METHOD == 1
+		for (int y = 0; y < MY; y++) {
+			char *row = field[y];
+			for (int x = 0; x < MIDX; x++) {
+				if (row[x] != row[MX-x-1]) {
+					return 0;
+				}
 			}
 		}
-	}
-	return 1;
+		return 1;
+	#elif METHOD == 2
+		int total_black = 0;
+		for (int y = 0; y < MY; y++) {
+			char *row = field[y];
+			int length_so_far = 0, max_length_so_far = 0;
+			for (int x = 0; x < MIDX; x++) {
+				if (row[x] == '*') {
+					length_so_far++;
+					if (length_so_far > max_length_so_far) {
+						max_length_so_far = length_so_far;
+					}
+				} else {
+					length_so_far = 0;
+				}
+			}
+			if (max_length_so_far > 1) {
+				total_black += max_length_so_far;
+			}
+		}
+		if (total_black > *progress) {
+			*progress = total_black;
+		}
+		return total_black > (crobots / 2);
+	#endif
 }
 
 void solve_part_one() {
@@ -664,10 +690,11 @@ void solve_part_one() {
 	printf("safety = %" PRId64 "\n", safety);
 }
 
-#define CLEAR_PROGRESS "\r          \r"
+#define CLEAR_PROGRESS "\r                                               \r"
 
 void solve_part_two() {
 	int64_t t = 0;
+	int progress = 0;
 	for (;; t++) {
 		int64_t qq[4] = {0};
 		for (ROBOT *r = robots; r < robots + crobots; r++) {
@@ -678,12 +705,26 @@ void solve_part_two() {
 				qq[q]++;
 			}
 		}
-		if (qq[0] == qq[1] && qq[2] == qq[3] && is_christmas_tree()) {
-			printf(CLEAR_PROGRESS "\nt = %" PRId64 ":\n", t);
-			print_field();
-			putchar('\n');
-		} else if (t % 1000000 == 0) {
-			printf(CLEAR_PROGRESS "t = %" PRId64, t);
+		#if METHOD == 1
+			#define REPORT_INTERVAL 1000000
+			if (qq[0] == qq[1] && qq[2] == qq[3] && is_christmas_tree(&progress)) {
+				printf(CLEAR_PROGRESS "\nt = %" PRId64 ":\n", t+1);
+				print_field();
+				putchar('\n');
+				continue
+			}
+		#elif METHOD == 2
+			#define REPORT_INTERVAL 10000
+			if (is_christmas_tree(&progress)) {
+				printf(CLEAR_PROGRESS "\nt = %" PRId64 ":\n", t+1);
+				print_field();
+				putchar('\n');
+				exit(0);
+				continue;
+			}
+		#endif
+		if (t % REPORT_INTERVAL == 0) {
+			printf(CLEAR_PROGRESS "t = %" PRId64 "   p = %d", t+1, progress);
 			fflush(stdout);
 		}
 	}
